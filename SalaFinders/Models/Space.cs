@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace SalaFinders.Models;
 
 public class Space
@@ -11,5 +13,6 @@ public class Space
     public List<string> AllowedPrograms { get; set; } = [];
     public bool RequiresApproval { get; set; }
 
+    [JsonIgnore]
     public ICollection<Reservation> Reservations { get; set; } = [];
 }

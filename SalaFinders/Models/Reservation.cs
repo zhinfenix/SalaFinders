@@ -24,6 +24,8 @@ public class Reservation
     public string? RejectedReason { get; set; }
     public bool IsNoShow { get; set; }
 
-    public Space Space { get; set; } = null!;
+    public Space? Space { get; set; }
+
+    [System.Text.Json.Serialization.JsonIgnore]
     public ApplicationUser User { get; set; } = null!;
 }
