@@ -57,6 +57,16 @@ public class ReservationsController : ControllerBase
         return Ok(reservations);
     }
 
+    [HttpGet("no-show-candidates")]
+    [Authorize(Roles = "Admin,Staff")]
+    public async Task<ActionResult<IEnumerable<Reservation>>> GetNoShowCandidates(
+        [FromQuery] DateOnly? fromDate,
+        [FromQuery] DateOnly? toDate)
+    {
+        var reservations = await _reservationService.GetNoShowCandidatesAsync(fromDate, toDate);
+        return Ok(reservations);
+    }
+
     [HttpPost("{id:int}/approve")]
     [Authorize(Roles = "Admin,Staff")]
     public async Task<IActionResult> Approve(int id)

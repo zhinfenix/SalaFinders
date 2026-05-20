@@ -80,6 +80,23 @@ public class ReservationService : IReservationService
     public async Task<IEnumerable<Reservation>> GetPendingApprovalsAsync() =>
         await _context.Reservations.Include(r => r.Space).Include(r => r.User).Where(r => r.Status == ReservationStatus.Pending).ToListAsync();
 
+    public async Task<IEnumerable<Reservation>> GetNoShowCandidatesAsync(DateOnly? fromDate, DateOnly? toDate)
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var from = fromDate ?? today.AddDays(-14);
+        var to = toDate ?? today;
+        return await _context.Reservations
+            .Include(r => r.Space)
+            .Include(r => r.User)
+            .Where(r => r.Status == ReservationStatus.Approved
+                && !r.IsNoShow
+                && r.Date >= from
+                && r.Date <= to)
+            .OrderByDescending(r => r.Date)
+            .ThenBy(r => r.StartTime)
+            .ToListAsync();
+    }
+
     public async Task<(bool Success, string? Error)> ApproveAsync(int id, string adminUserId)
     {
         var reservation = await _context.Reservations.Include(r => r.Space).FirstOrDefaultAsync(r => r.Id == id);

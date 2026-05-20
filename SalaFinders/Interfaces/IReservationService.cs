@@ -9,6 +9,7 @@ public interface IReservationService
     Task<Reservation?> GetByIdAsync(int id);
     Task<IEnumerable<Reservation>> GetByUserAsync(string userId);
     Task<IEnumerable<Reservation>> GetPendingApprovalsAsync();
+    Task<IEnumerable<Reservation>> GetNoShowCandidatesAsync(DateOnly? fromDate, DateOnly? toDate);
     Task<(bool Success, string? Error)> ApproveAsync(int id, string adminUserId);
     Task<(bool Success, string? Error)> RejectAsync(int id, string adminUserId, string? reason = null);
     Task<(bool Success, string? Error)> CancelAsync(int id, string userId);
