@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SalaFinders.Interfaces;
+using SalaFinders.Models;
 using SalaFinders.Models.DTOs;
 
 namespace SalaFinders.Controllers;
@@ -17,7 +18,7 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<IActionResult> Register([FromBody] RegisterDto model)
     {
-        var result = await _authService.RegisterAsync(model.Email, model.Password, model.FullName, model.Role);
+        var result = await _authService.RegisterAsync(model.Email, model.Password, model.FullName, model.Role, model.Program);
         if (result.Succeeded)
             return Ok(new { Message = $"Usuario {model.Email} creado con éxito." });
         return BadRequest(result.Errors);
@@ -46,10 +47,44 @@ public class AuthController : ControllerBase
             user!.Id,
             user.Email,
             user.FullName,
+            user.Program,
             user.NoShowCount,
             BlockedUntil = user.BlockedUntil,
             IsBlocked = user.BlockedUntil > DateTime.UtcNow,
-            Roles = roles
+            Roles = roles,
+            RequiresProgram = roles.Contains("Student") && string.IsNullOrWhiteSpace(user.Program)
+        });
+    }
+
+    [HttpGet("programs")]
+    [AllowAnonymous]
+    public IActionResult GetPrograms() =>
+        Ok(AcademicPrograms.Selectable);
+
+    [HttpPut("program")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> UpdateProgram([FromBody] UpdateProgramDto model)
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+        var (success, error) = await _authService.UpdateProgramAsync(userId, model.Program);
+        if (!success) return BadRequest(new { Message = error });
+
+        var info = await _authService.GetUserInfoAsync(userId);
+        if (info == null) return NotFound();
+        var (user, roles) = info.Value;
+        return Ok(new
+        {
+            user!.Id,
+            user.Email,
+            user.FullName,
+            user.Program,
+            user.NoShowCount,
+            BlockedUntil = user.BlockedUntil,
+            IsBlocked = user.BlockedUntil > DateTime.UtcNow,
+            Roles = roles,
+            RequiresProgram = false
         });
     }
 }

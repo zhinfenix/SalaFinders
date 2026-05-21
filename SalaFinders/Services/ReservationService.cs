@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using SalaFinders.Data;
 using SalaFinders.Interfaces;
@@ -14,18 +15,26 @@ public class ReservationService : IReservationService
     private readonly ApplicationDbContext _context;
     private readonly IAuditService _auditService;
     private readonly ISpaceService _spaceService;
+    private readonly UserManager<ApplicationUser> _userManager;
 
-    public ReservationService(ApplicationDbContext context, IAuditService auditService, ISpaceService spaceService)
+    public ReservationService(
+        ApplicationDbContext context,
+        IAuditService auditService,
+        ISpaceService spaceService,
+        UserManager<ApplicationUser> userManager)
     {
         _context = context;
         _auditService = auditService;
         _spaceService = spaceService;
+        _userManager = userManager;
     }
 
     public async Task<(Reservation? Reservation, ConflictInfoDto? Conflict)> CreateReservationAsync(string userId, CreateReservationDto dto)
     {
         var user = await _context.Users.FindAsync(userId);
-        if (user?.BlockedUntil > DateTime.UtcNow)
+        if (user == null)
+            return (null, new ConflictInfoDto { Message = "Usuario no encontrado" });
+        if (user.BlockedUntil > DateTime.UtcNow)
             return (null, new ConflictInfoDto { Message = "Usuario bloqueado por política de no-show. Intente después del " + user.BlockedUntil?.ToString("yyyy-MM-dd") });
 
         var space = await _context.Spaces.FindAsync(dto.SpaceId);
@@ -37,6 +46,19 @@ public class ReservationService : IReservationService
 
         if (dto.EndTime <= dto.StartTime)
             return (null, new ConflictInfoDto { Message = "La hora de fin debe ser posterior a la de inicio" });
+
+        var roles = await _userManager.GetRolesAsync(user);
+        var isStudentOnly = roles.Contains("Student") && !roles.Contains("Admin") && !roles.Contains("Staff");
+        if (isStudentOnly)
+        {
+            if (string.IsNullOrWhiteSpace(user.Program))
+                return (null, new ConflictInfoDto { Message = "Debes registrar tu carrera antes de reservar espacios." });
+            if (!AcademicPrograms.CanAccessSpace(space.AllowedPrograms, user.Program))
+                return (null, new ConflictInfoDto
+                {
+                    Message = $"Este espacio solo está disponible para: {string.Join(", ", space.AllowedPrograms)}."
+                });
+        }
 
         var hasOverlap = await HasOverlapAsync(dto.SpaceId, dto.Date, dto.StartTime, dto.EndTime);
         if (hasOverlap)

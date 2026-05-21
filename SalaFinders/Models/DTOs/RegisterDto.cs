@@ -17,4 +17,7 @@ public class RegisterDto
 
     [Required]
     public string Role { get; set; } = "Student";
+
+    /// <summary>Carrera académica (requerida para estudiantes).</summary>
+    public string? Program { get; set; }
 }

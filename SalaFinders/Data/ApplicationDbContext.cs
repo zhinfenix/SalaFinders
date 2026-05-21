@@ -72,6 +72,7 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>
 
         builder.Entity<ApplicationUser>(entity =>
         {
+            entity.Property(e => e.Program).HasMaxLength(100).IsRequired(false);
             entity.Property(e => e.NoShowCount).HasDefaultValue(0);
             entity.Property(e => e.BlockedUntil).IsRequired(false);
         });

@@ -24,13 +24,22 @@ public class AuthService : IAuthService
         _configuration = configuration;
     }
 
-    public async Task<IdentityResult> RegisterAsync(string email, string password, string fullName, string role)
+    public async Task<IdentityResult> RegisterAsync(string email, string password, string fullName, string role, string? program = null)
     {
+        if (string.Equals(role, "Student", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(program))
+                return IdentityResult.Failed(new IdentityError { Description = "Los estudiantes deben indicar su carrera." });
+            if (!AcademicPrograms.IsValidSelectable(program))
+                return IdentityResult.Failed(new IdentityError { Description = "La carrera indicada no es válida." });
+        }
+
         var user = new ApplicationUser
         {
             UserName = email,
             Email = email,
-            FullName = fullName
+            FullName = fullName,
+            Program = string.Equals(role, "Student", StringComparison.OrdinalIgnoreCase) ? program!.Trim() : null
         };
         var result = await _userManager.CreateAsync(user, password);
         if (result.Succeeded)
@@ -40,6 +49,23 @@ public class AuthService : IAuthService
             await _userManager.AddToRoleAsync(user, role);
         }
         return result;
+    }
+
+    public async Task<(bool Success, string? Error)> UpdateProgramAsync(string userId, string program)
+    {
+        if (!AcademicPrograms.IsValidSelectable(program))
+            return (false, "La carrera indicada no es válida.");
+
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user == null) return (false, "Usuario no encontrado");
+
+        var roles = await _userManager.GetRolesAsync(user);
+        if (!roles.Contains("Student"))
+            return (false, "Solo los estudiantes pueden actualizar su carrera.");
+
+        user.Program = program.Trim();
+        var result = await _userManager.UpdateAsync(user);
+        return result.Succeeded ? (true, null) : (false, string.Join("; ", result.Errors.Select(e => e.Description)));
     }
 
     public async Task<string?> LoginAsync(string email, string password)
